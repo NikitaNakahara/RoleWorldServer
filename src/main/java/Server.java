@@ -1,9 +1,9 @@
 import org.json.JSONObject;
 
+import javax.xml.crypto.Data;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
-import java.lang.reflect.Array;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.ArrayList;
@@ -17,10 +17,11 @@ public class Server {
     private ServerSocket serverSocket;
     private boolean stopServer = false;
 
-    HashMap<String, HashMap<String, String>> users = new HashMap<>();
     ArrayList<String> IDs = new ArrayList<>();
 
     Server() {
+        Database.create();
+
         try {
             serverSocket = new ServerSocket(PORT);
             System.out.println("Start server");
@@ -52,7 +53,7 @@ public class Server {
                         } else {
                             json.put("state", "success");
                             json.put("id", userData.get(0));
-                            if (inputJson.getString("type").equals("sign_in")) {
+                            if (inputJson.getString("mode").equals("sign_in")) {
                                 json.put("nickname", userData.get(1));
                             }
                         }
@@ -69,29 +70,25 @@ public class Server {
 
     private ArrayList<String> authUser(JSONObject data) {
         if (Objects.equals(data.getString("mode"), "sign_in")) {
-            HashMap<String,String> user = users.get(data.getString("email"));
+            User user = Database.getUser(data.getString("email"), Database.EMAIL);
             if (user != null) {
-                if (Objects.equals(user.get("password"), data.getString("password"))) {
+                if (Objects.equals(user.getPassword(), String.valueOf(data.getString("password").hashCode()))) {
                     ArrayList<String> arr = new ArrayList<>();
-                    arr.add(user.get("id"));
-                    arr.add(user.get("nickname"));
+                    arr.add(user.getId());
+                    arr.add(user.getNickname());
                     return arr;
                 }
             }
         } else {
-            if (users.get(data.getString("email")) == null) {
-                HashMap<String, String> user = new HashMap<>();
-                user.put("nickname", (String) data.get("nickname"));
-                user.put("password", (String) data.get("password"));
-
+            if (Database.getUser(data.getString("email"), Database.EMAIL) == null) {
                 String id = generateUniqueID();
-                user.put("id", id);
+                User user = new User(id, (String) data.get("nickname"), data.getString("email"), String.valueOf(data.get("password").hashCode()));
                 IDs.add(id);
 
-                users.put((String) data.get("email"), user);
+                Database.addUser(user);
 
                 ArrayList<String> arr = new ArrayList<>();
-                arr.add(user.get("id"));
+                arr.add(user.getId());
                 return arr;
             }
         }
