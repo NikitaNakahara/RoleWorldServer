@@ -39,27 +39,78 @@ public class Server {
         try {
             DataInputStream input = new DataInputStream(socket.getInputStream());
             DataOutputStream output = new DataOutputStream(socket.getOutputStream());
+            boolean isAuth = false;
 
             while (!stopServer) {
-                JSONObject inputJson = new JSONObject(input.readUTF());
-                System.out.println("GET: " + inputJson.toString());
+                String inputStr = input.readUTF();
+                System.out.println("GET: " + inputStr);
 
-                switch ((String) inputJson.get("type")) {
+                Message inputMsg = new Message(inputStr);
+
+                if (Objects.equals(inputMsg.getRequestType(), "sys")) {
+                    if (Objects.equals(inputMsg.getRequestMode(), "msg_is_multiblock")) {
+                        StringBuilder result = new StringBuilder();
+                        String inputString;
+                        while (!(inputString = input.readUTF()).equals("$END$")) {
+                            System.out.print(inputString);
+                            result.append(inputString);
+                        }
+
+                        inputMsg = new Message(result.toString());
+                    }
+                }
+
+                Message responseMsg = new Message();
+                switch (inputMsg.getRequestType()) {
                     case "auth":
-                        ArrayList<String> userData = authUser(inputJson);
-                        JSONObject json = new JSONObject();
-                        if (userData == null) {
-                            json.put("state", "failed");
-                        } else {
-                            json.put("state", "success");
-                            json.put("id", userData.get(0));
-                            if (inputJson.getString("mode").equals("sign_in")) {
-                                json.put("nickname", userData.get(1));
+                        if (!isAuth) {
+                            HashMap<String, String> userData = authUser(inputMsg);
+                            JSONObject json = new JSONObject();
+                            if (userData == null) {
+                                json.put("state", "failed");
+                            } else {
+                                json.put("state", "success");
+                                if (inputMsg.getRequestMode().equals("sign_in")) {
+                                    json.put("nickname", userData.get("nickname"));
+                                    json.put("avatar", userData.get("avatar"));
+                                }
+                                isAuth = true;
+                            }
+
+
+                            responseMsg.setData(json);
+                            assert userData != null;
+                            responseMsg.setUserId(userData.get("id"));
+
+                            System.out.println("POST: " + responseMsg);
+                            if (isBigMessage(responseMsg)) {
+                                sendBigMessage(responseMsg, output);
+                            } else {
+                                output.writeUTF(responseMsg.toString());
+                                output.flush();
                             }
                         }
 
-                        System.out.println("POST: " + json.toString());
-                        output.writeUTF(json.toString());
+                        break;
+
+                    case "update":
+                        if (isAuth) {
+                            User user = Database.getUser(inputMsg.getUserId(), Database.ID);
+                            JSONObject data = new JSONObject(inputMsg.getData());
+                            User updated = user.updateForValueName(data.getString("value"), inputMsg.getRequestMode());
+
+                            Database.updateUser(updated, inputMsg.getRequestMode());
+
+                            JSONObject updateResponseData = new JSONObject();
+                            updateResponseData.put("state", "success");
+
+                            responseMsg.setData(updateResponseData);
+                            responseMsg.setUserId(user.getId());
+
+                            System.out.println("POST: " + responseMsg);
+                            output.writeUTF(responseMsg.toString());
+                        }
+
                         break;
                 }
             }
@@ -68,28 +119,90 @@ public class Server {
         }
     }
 
-    private ArrayList<String> authUser(JSONObject data) {
-        if (Objects.equals(data.getString("mode"), "sign_in")) {
-            User user = Database.getUser(data.getString("email"), Database.EMAIL);
+    private boolean isBigMessage(Message msg) {
+        return msg.toString().length() > 30000;
+    }
+
+    private void sendBigMessage(Message msg, DataOutputStream dos) {
+        String msgString = msg.toString();
+
+        ArrayList<String> strings = getStrings(msgString);
+
+        Message sysMsg = new Message();
+        sysMsg.setRequestMode("msg_is_multiblock");
+        sysMsg.setRequestType("sys");
+
+        try {
+            dos.writeUTF(sysMsg.toString());
+            dos.flush();
+
+            for (int i = 0; i < strings.size(); i++) {
+                dos.writeUTF(strings.get(i));
+                dos.flush();
+            }
+
+            dos.writeUTF("$END$");
+            dos.flush();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private ArrayList<String> getStrings(String msgString) {
+        int len = msgString.length();
+        int offset = 0;
+
+        ArrayList<String> strings = new ArrayList<>();
+
+        while (len > 30000) {
+            StringBuilder strBuilder = new StringBuilder();
+
+            for (int i = 0; i < 30000; i++) {
+                strBuilder.append(msgString.charAt(i + offset));
+            }
+
+            strings.add(strBuilder.toString());
+            offset += 30000;
+            len -= 30000;
+        }
+
+        if (len != 0) {
+            StringBuilder strBuilder = new StringBuilder();
+
+            for (int i = 0; i < len; i++) {
+                strBuilder.append(msgString.charAt(i + offset));
+            }
+
+            strings.add(strBuilder.toString());
+        }
+        return strings;
+    }
+
+    private HashMap<String, String> authUser(Message data) {
+        JSONObject msgData = new JSONObject(data.getData());
+
+        if (Objects.equals(data.getRequestMode(), "sign_in")) {
+            User user = Database.getUser(msgData.getString("email"), Database.EMAIL);
             if (user != null) {
-                if (Objects.equals(user.getPassword(), String.valueOf(data.getString("password").hashCode()))) {
-                    ArrayList<String> arr = new ArrayList<>();
-                    arr.add(user.getId());
-                    arr.add(user.getNickname());
-                    return arr;
+                if (Objects.equals(user.getPassword(), String.valueOf(msgData.getString("password").hashCode()))) {
+                    HashMap<String, String> map = new HashMap<>();
+                    map.put("id", user.getId());
+                    map.put("nickname", user.getNickname());
+                    map.put("avatar", user.getAvatar());
+                    return map;
                 }
             }
         } else {
-            if (Database.getUser(data.getString("email"), Database.EMAIL) == null) {
+            if (Database.getUser(msgData.getString("email"), Database.EMAIL) == null) {
                 String id = generateUniqueID();
-                User user = new User(id, (String) data.get("nickname"), data.getString("email"), String.valueOf(data.get("password").hashCode()));
+                User user = new User(id, (String) msgData.get("nickname"), msgData.getString("email"), String.valueOf(msgData.get("password").hashCode()), null);
                 IDs.add(id);
 
                 Database.addUser(user);
 
-                ArrayList<String> arr = new ArrayList<>();
-                arr.add(user.getId());
-                return arr;
+                HashMap<String, String> map = new HashMap<>();
+                map.put("id", user.getId());
+                return map;
             }
         }
 

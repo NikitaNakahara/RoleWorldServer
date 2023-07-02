@@ -7,6 +7,7 @@ public class Database {
     public static final String ID = "id";
     public static final String NICKNAME = "nickname";
     public static final String EMAIL = "email";
+    public static final String AVATAR = "avatar";
 
     public static void create() {
         try {
@@ -22,6 +23,17 @@ public class Database {
                     "password TEXT" +
                     ");");
         } catch (SQLException | ClassNotFoundException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    public static void updateUser(User user, String columnForUpdate) {
+        try {
+            Statement statement = usersConnection.createStatement();
+            String sqlRequest = "UPDATE users SET " + columnForUpdate + " = '" + user.getValueForName(columnForUpdate) + "' WHERE id = '" + user.getId() + "';";
+            statement.execute(sqlRequest);
+            System.out.println("Updated " + columnForUpdate + ": " + user.getValueForName(columnForUpdate));
+        } catch (SQLException e) {
             throw new RuntimeException(e);
         }
     }
@@ -58,7 +70,7 @@ public class Database {
 
             while (userData.next()) {
                 if (Objects.equals(userData.getString(type), id)) {
-                    return new User(userData.getString("id"), userData.getString("nickname"), userData.getString("email"), userData.getString("password"));
+                    return new User(userData.getString("id"), userData.getString("nickname"), userData.getString("email"), userData.getString("password"), userData.getString("avatar"));
                 }
             }
         } catch (SQLException e) {
