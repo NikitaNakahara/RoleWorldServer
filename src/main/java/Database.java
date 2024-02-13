@@ -1,4 +1,5 @@
 import java.sql.*;
+import java.util.ArrayList;
 import java.util.Objects;
 
 public class Database {
@@ -12,7 +13,7 @@ public class Database {
     public static void create() {
         try {
             Class.forName("org.sqlite.JDBC");
-            usersConnection = DriverManager.getConnection("jdbc:sqlite:/home/nikita/Рабочий стол/dev-java/RoleWorldServer/src/main/resources/db/users.db");
+            usersConnection = DriverManager.getConnection("jdbc:sqlite:C:\\Users\\user\\Desktop\\RoleWorldServer\\src\\main\\resources\\db\\users.db");
 
             Statement statement = usersConnection.createStatement();
 
@@ -21,6 +22,13 @@ public class Database {
                     "nickname TEXT," +
                     "email TEXT," +
                     "password TEXT" +
+                    "avatar TEXT" +
+                    ");");
+            statement.execute("CREATE TABLE if not exists characters (" +
+                    "id TEXT," +
+                    "userId TEXT," +
+                    "dataArray TEXT," +
+                    "avatar TEXT" +
                     ");");
         } catch (SQLException | ClassNotFoundException e) {
             throw new RuntimeException(e);
@@ -46,7 +54,7 @@ public class Database {
     ) {
         try {
             Statement statement = usersConnection.createStatement();
-            statement.execute("INSERT INTO users (id, nickname, email, password) VALUES (" + id + nickname + email + password + ");");
+            statement.execute("INSERT INTO users (id, nickname, email, password) VALUES (" + id  + "', '" + nickname  + "', '" + email  + "', '" + password + ");");
         } catch (SQLException e) {
             throw new RuntimeException(e);
         }
@@ -56,6 +64,23 @@ public class Database {
         try {
             Statement statement = usersConnection.createStatement();
             statement.execute("INSERT INTO users (id, nickname, email, password) VALUES ('" + user.getId() + "', '" + user.getNickname() + "', '" + user.getEmail() + "', '" + user.getPassword() + "');");
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    public static void addCharacter(String userId, Character character) {
+        try {
+            Statement statement = usersConnection.createStatement();
+
+            ArrayList<String> fields = new ArrayList<>();
+
+            for (String title : character.getTitles()) {
+                fields.add(title);
+                fields.add(character.getDataField(title));
+            }
+
+            statement.execute("INSERT INTO characters (id, userId, dataArray, avatar) VALUES ('" + character.getID() + "', '" + userId + "', '" + fields.toString() + "', '" + character.getAvatar() + "');");
         } catch (SQLException e) {
             throw new RuntimeException(e);
         }

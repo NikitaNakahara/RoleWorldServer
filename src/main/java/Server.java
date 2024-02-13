@@ -1,23 +1,19 @@
+import org.json.JSONArray;
 import org.json.JSONObject;
 
-import javax.xml.crypto.Data;
-import java.io.DataInputStream;
-import java.io.DataOutputStream;
-import java.io.IOException;
+import java.io.*;
+import java.lang.reflect.Array;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Objects;
-import java.util.Random;
+import java.util.*;
 
 public class Server {
-    private final int PORT = 3045;
+    private final int PORT = 4035;
 
     private ServerSocket serverSocket;
     private boolean stopServer = false;
 
-    ArrayList<String> IDs = new ArrayList<>();
+    private static final ArrayList<String> IDs = new ArrayList<>();
 
     Server() {
         Database.create();
@@ -60,6 +56,8 @@ public class Server {
                     }
                 }
 
+
+
                 Message responseMsg = new Message();
                 switch (inputMsg.getRequestType()) {
                     case "auth":
@@ -70,12 +68,15 @@ public class Server {
                                 json.put("state", "failed");
                             } else {
                                 json.put("state", "success");
+
                                 if (inputMsg.getRequestMode().equals("sign_in")) {
                                     json.put("nickname", userData.get("nickname"));
                                     json.put("avatar", userData.get("avatar"));
                                 }
                                 isAuth = true;
                             }
+
+                            json.put("request", "auth");
 
 
                             responseMsg.setData(json);
@@ -103,6 +104,7 @@ public class Server {
 
                             JSONObject updateResponseData = new JSONObject();
                             updateResponseData.put("state", "success");
+                            updateResponseData.put("request", "update");
 
                             responseMsg.setData(updateResponseData);
                             responseMsg.setUserId(user.getId());
@@ -112,11 +114,46 @@ public class Server {
                         }
 
                         break;
+                    case "character":
+                        if (inputMsg.getRequestMode().equals("add")) {
+                            Character character = getCharacter(inputMsg);
+
+                            character.setID(generateUniqueID());
+
+                            Database.addCharacter(inputMsg.getUserId(), character);
+
+                            JSONObject addResponseData = new JSONObject();
+                            addResponseData.put("state", "success");
+                            addResponseData.put("request", "add_character");
+
+                            responseMsg.setData(addResponseData);
+                            responseMsg.setUserId(character.getID());
+
+                            System.out.println("POST: " + responseMsg);
+                            output.writeUTF(responseMsg.toString());
+                        }
                 }
             }
         } catch (IOException e) {
             e.printStackTrace();
         }
+    }
+
+    private static Character getCharacter(Message inputMsg) {
+        Character character = new Character();
+
+        JSONObject data = new JSONObject(inputMsg.getData());
+
+        String arrayString = ((String)data.get("data")).substring(1, ((String)data.get("data")).length() - 1);
+        String[] array = arrayString.split(", |,");
+
+        for (int i = 0; i < array.length - 1; i += 2) {
+            character.addDataField(array[i], array[i + 1]);
+        }
+
+        character.setAvatar((String)data.get("avatar"));
+
+        return character;
     }
 
     private boolean isBigMessage(Message msg) {
@@ -209,7 +246,7 @@ public class Server {
         return null;
     }
 
-    private String generateUniqueID() {
+    public static String generateUniqueID() {
         Random random = new Random();
         StringBuilder result;
         do {
@@ -225,7 +262,7 @@ public class Server {
         return result.toString();
     }
 
-    private boolean checkUserID(String id) {
+    public static boolean checkUserID(String id) {
         for (String s : IDs) {
             if (Objects.equals(s, id)) return true;
         }
