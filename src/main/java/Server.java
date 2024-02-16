@@ -116,11 +116,15 @@ public class Server {
                         break;
                     case "character":
                         if (inputMsg.getRequestMode().equals("add")) {
+                            User user = Database.getUser(inputMsg.getUserId(), Database.ID);
+
                             Character character = getCharacter(inputMsg);
 
                             character.setID(generateUniqueID());
 
-                            Database.addCharacter(inputMsg.getUserId(), character);
+                            Database.addCharacter(character);
+                            user.addCharacter(character.getID());
+                            Database.updateUser(user, Database.CHARACTERS);
 
                             JSONObject addResponseData = new JSONObject();
                             addResponseData.put("state", "success");
@@ -232,7 +236,7 @@ public class Server {
         } else {
             if (Database.getUser(msgData.getString("email"), Database.EMAIL) == null) {
                 String id = generateUniqueID();
-                User user = new User(id, (String) msgData.get("nickname"), msgData.getString("email"), String.valueOf(msgData.get("password").hashCode()), null);
+                User user = new User(id, (String) msgData.get("nickname"), msgData.getString("email"), String.valueOf(msgData.get("password").hashCode()), null, new ArrayList<>());
                 IDs.add(id);
 
                 Database.addUser(user);

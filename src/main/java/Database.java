@@ -1,5 +1,8 @@
+import javax.swing.filechooser.FileSystemView;
+import java.io.File;
 import java.sql.*;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Objects;
 
 public class Database {
@@ -8,12 +11,16 @@ public class Database {
     public static final String ID = "id";
     public static final String NICKNAME = "nickname";
     public static final String EMAIL = "email";
+    public static final String PASSWORD = "password";
     public static final String AVATAR = "avatar";
+    public static final String CHARACTERS = "characters";
 
     public static void create() {
         try {
             Class.forName("org.sqlite.JDBC");
-            usersConnection = DriverManager.getConnection("jdbc:sqlite:C:\\Users\\user\\Desktop\\RoleWorldServer\\src\\main\\resources\\db\\users.db");
+            // "jdbc:sqlite:"
+            String url = "jdbc:sqlite:/home/nakaharadev/Desktop/dev/java/RoleWorldServer/src/main/resources/db/users.db";
+            usersConnection = DriverManager.getConnection(url);
 
             Statement statement = usersConnection.createStatement();
 
@@ -21,12 +28,12 @@ public class Database {
                     "id TEXT," +
                     "nickname TEXT," +
                     "email TEXT," +
-                    "password TEXT" +
-                    "avatar TEXT" +
+                    "password TEXT," +
+                    "avatar TEXT," +
+                    "characters TEXT" +
                     ");");
             statement.execute("CREATE TABLE if not exists characters (" +
                     "id TEXT," +
-                    "userId TEXT," +
                     "dataArray TEXT," +
                     "avatar TEXT" +
                     ");");
@@ -69,7 +76,7 @@ public class Database {
         }
     }
 
-    public static void addCharacter(String userId, Character character) {
+    public static void addCharacter(Character character) {
         try {
             Statement statement = usersConnection.createStatement();
 
@@ -80,7 +87,7 @@ public class Database {
                 fields.add(character.getDataField(title));
             }
 
-            statement.execute("INSERT INTO characters (id, userId, dataArray, avatar) VALUES ('" + character.getID() + "', '" + userId + "', '" + fields.toString() + "', '" + character.getAvatar() + "');");
+            statement.execute("INSERT INTO characters (id, dataArray, avatar) VALUES ('" + character.getID() + "', '" + fields.toString() + "', '" + character.getAvatar() + "');");
         } catch (SQLException e) {
             throw new RuntimeException(e);
         }
@@ -95,7 +102,17 @@ public class Database {
 
             while (userData.next()) {
                 if (Objects.equals(userData.getString(type), id)) {
-                    return new User(userData.getString("id"), userData.getString("nickname"), userData.getString("email"), userData.getString("password"), userData.getString("avatar"));
+                    String characters = userData.getString("characters");
+
+                    ArrayList<String> charactersList;
+                    if (characters != null) {
+                        String arrayString = characters.substring(1, characters.length() - 1);
+                        String[] array = arrayString.split(", ");
+
+                        charactersList = new ArrayList<>(Arrays.asList(array));
+                    } else charactersList = new ArrayList<>();
+
+                    return new User(userData.getString("id"), userData.getString("nickname"), userData.getString("email"), userData.getString("password"), userData.getString("avatar"), charactersList);
                 }
             }
         } catch (SQLException e) {
