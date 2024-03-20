@@ -107,10 +107,15 @@ public class Database {
                     ArrayList<String> charactersList;
                     if (characters != null) {
                         String arrayString = characters.substring(1, characters.length() - 1);
-                        String[] array = arrayString.split(", ");
+                        String[] array;
+                        if (arrayString.length() > 10) array = arrayString.split(", ");
+                        else array = new String[] { arrayString };
 
                         charactersList = new ArrayList<>(Arrays.asList(array));
-                    } else charactersList = new ArrayList<>();
+                    } else {
+                        charactersList = new ArrayList<>();
+                        Log.add(Log.DEBUG, "Database", "Characters is null");
+                    }
 
                     return new User(userData.getString("id"), userData.getString("nickname"), userData.getString("email"), userData.getString("password"), userData.getString("avatar"), charactersList);
                 }

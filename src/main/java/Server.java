@@ -20,7 +20,7 @@ public class Server {
 
         try {
             serverSocket = new ServerSocket(PORT);
-            System.out.println("Start server");
+            Log.add(Log.DEBUG, "System", "Start server");
 
             while (!stopServer) {
                 newClient(serverSocket.accept());
@@ -31,7 +31,7 @@ public class Server {
     }
 
     private void newClient(Socket socket) {
-        System.out.println("Client connected");
+        Log.add(Log.DEBUG, "System", "Client connected");
         try {
             DataInputStream input = new DataInputStream(socket.getInputStream());
             DataOutputStream output = new DataOutputStream(socket.getOutputStream());
@@ -39,7 +39,7 @@ public class Server {
 
             while (!stopServer) {
                 String inputStr = input.readUTF();
-                System.out.println("GET: " + inputStr);
+                Log.add(Log.DEBUG, "GET", inputStr);
 
                 Message inputMsg = new Message(inputStr);
 
@@ -48,7 +48,7 @@ public class Server {
                         StringBuilder result = new StringBuilder();
                         String inputString;
                         while (!(inputString = input.readUTF()).equals("$END$")) {
-                            System.out.print(inputString);
+                            Log.add(Log.DEBUG, "Input", inputString);
                             result.append(inputString);
                         }
 
@@ -72,6 +72,7 @@ public class Server {
                                 if (inputMsg.getRequestMode().equals("sign_in")) {
                                     json.put("nickname", userData.get("nickname"));
                                     json.put("avatar", userData.get("avatar"));
+                                    json.put("characters", userData.get("characters"));
                                 }
                                 isAuth = true;
                             }
@@ -83,7 +84,7 @@ public class Server {
                             assert userData != null;
                             responseMsg.setUserId(userData.get("id"));
 
-                            System.out.println("POST: " + responseMsg);
+                            Log.add(Log.DEBUG, "POST", responseMsg.toString());
                             if (isBigMessage(responseMsg)) {
                                 sendBigMessage(responseMsg, output);
                             } else {
@@ -109,7 +110,7 @@ public class Server {
                             responseMsg.setData(updateResponseData);
                             responseMsg.setUserId(user.getId());
 
-                            System.out.println("POST: " + responseMsg);
+                            Log.add(Log.DEBUG, "POST", responseMsg.toString());
                             output.writeUTF(responseMsg.toString());
                         }
 
@@ -133,7 +134,7 @@ public class Server {
                             responseMsg.setData(addResponseData);
                             responseMsg.setUserId(character.getID());
 
-                            System.out.println("POST: " + responseMsg);
+                            Log.add(Log.DEBUG, "POST", responseMsg.toString());
                             output.writeUTF(responseMsg.toString());
                         }
                 }
@@ -230,6 +231,8 @@ public class Server {
                     map.put("id", user.getId());
                     map.put("nickname", user.getNickname());
                     map.put("avatar", user.getAvatar());
+                    map.put("characters", user.getValueForName(User.CHARACTERS));
+
                     return map;
                 }
             }

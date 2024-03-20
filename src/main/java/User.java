@@ -7,7 +7,7 @@ public class User {
     private final String password;
     private final String avatar;
 
-    private final ArrayList<String> characters = new ArrayList<>();
+    private ArrayList<String> characters = new ArrayList<>();
 
     public static final String ID = "id";
     public static final String NICKNAME = "nickname";
@@ -22,6 +22,7 @@ public class User {
         this.email = email;
         this.password = password;
         this.avatar = avatar;
+        this.characters = characters;
     }
 
     public User updateNickname(String value) {
@@ -82,10 +83,13 @@ public class User {
                 return this.avatar;
 
             case CHARACTERS:
+                if (characters.size() == 0) return "[]";
+
                 StringBuilder str = new StringBuilder("[");
                 for (String id : characters) {
                     str.append(id).append(", ");
                 }
+                Log.add(Log.DEBUG, "Character", str.toString());
                 str = new StringBuilder(str.substring(0, str.length() - 2));
                 str.append("]");
 
